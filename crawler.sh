@@ -156,6 +156,7 @@ process_catalog() {
   local COOKIE_JAR="$TMP_DIR/cookies.txt"
   local CATALOG_HTML="$TMP_DIR/catalog.html"
   local CATALOG_DATA="$TMP_DIR/catalog.tsv"
+  local -A volume_counters=()
   UA="curl/7.81.0"
   curl_base=(curl -fsSL --compressed --retry 3 --retry-delay 2 -A "$UA" -b "$COOKIE_JAR" -c "$COOKIE_JAR")
 
@@ -222,7 +223,11 @@ process_catalog() {
           ((++chapter_count))
           continue
         fi
-        chapter_path="$volume_dir/$chapter_safe.txt"
+        chapter_index=${volume_counters["$volume_dir"]:-0}
+        chapter_index=$((chapter_index + 1))
+        volume_counters["$volume_dir"]=$chapter_index
+        printf -v chapter_prefix "%03d" "$chapter_index"
+        chapter_path="$volume_dir/${chapter_prefix}_${chapter_safe}.txt"
         if [[ -e "$chapter_path" ]]; then
           if [[ -s "$chapter_path" ]]; then
             printf '    [%03d] 跳过 %s - %s (已存在)\n' "$((chapter_count + 1))" "$volume_safe" "$chapter_title"
