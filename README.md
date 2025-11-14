@@ -19,14 +19,16 @@
 
 ```bash
 chmod +x crawler.sh
-./crawler.sh https://www.wenku8.net/novel/1/1508/index.htm
-# 或指定输出目录与延迟
-./crawler.sh https://www.wenku8.net/novel/1/1508/index.htm my_dir 15
+# 一次下载多本小说（自动去重、顺序执行）
+./crawler.sh https://www.wenku8.net/novel/1/1508/index.htm https://www.wenku8.net/novel/4/4011/index.htm
+# 自定义输出目录与请求延迟
+./crawler.sh -o my_dir -d 15 https://www.wenku8.net/novel/1/1508/index.htm
 ```
 
 - 依赖：`bash`、`curl`、`iconv`、`python3`（标准库即可）。
-- 参数 2：输出根目录（默认 `downloaded`）。
-- 参数 3：每次请求的基础等待秒数（默认 `10`，实际会加一点随机抖动）。
+- `-o/--output`：自定义根目录（默认 `downloaded`，每本小说会在其下生成独立子文件夹）。
+- `-d/--delay`：每次请求的基础等待秒数（默认 `10`，实际会加一点随机抖动）。
+- 其余位置参数皆视为目录网址，脚本会先列出任务列表并依次执行。
 
 ## 注意事项
 
