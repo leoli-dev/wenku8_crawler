@@ -43,6 +43,7 @@ fetch_page() {
   local attempt=1
   local max_attempts=5
   local raw="$output.raw"
+  local last_error=0
   local -a headers=()
   if [[ -n "$referer" ]]; then
     headers+=(-H "Referer: $referer")
@@ -64,6 +65,8 @@ PY
       rm -f "$raw"
       sleep_with_jitter "$DELAY"
       return 0
+    else
+      last_error=$?
     fi
     if [[ "$url" == https://* ]]; then
       local fallback="http://${url#https://}"
@@ -83,20 +86,23 @@ PY
         rm -f "$raw"
         sleep_with_jitter "$DELAY"
         return 0
+      else
+        last_error=$?
       fi
     fi
     rm -f "$raw"
     if (( attempt == max_attempts )); then
-      echo "下载失败：$url (已尝试 $attempt 次)" >&2
+      echo "下载失败：$url (已尝试 $attempt 次, 最后错误码 $last_error)" >&2
       return 1
     fi
-    local pause=$(python3 - <<PY
-import random
-print(max(1.0, $DELAY * (1 + $attempt * 0.5)) + random.uniform(0.5, 2.0))
+    local wait_seconds=$(python3 - <<PY
+import sys
+base = max(float($DELAY), 10.0)
+print(f"{base:.2f}")
 PY
 )
-    echo "请求失败，${pause}s 后重试 (第 $attempt 次)..." >&2
-    sleep "$pause"
+    echo "请求失败（尝试 $attempt/$max_attempts，错误码 $last_error）：$url。将等待 ${wait_seconds}s 后重试" >&2
+    sleep "$wait_seconds"
     ((attempt++))
   done
 }
