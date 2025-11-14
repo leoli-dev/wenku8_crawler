@@ -206,17 +206,22 @@ process_catalog() {
           if [[ ! -s "$image_list" ]]; then
             echo "        未在插图章节中找到图片链接" >&2
           else
-            idx=1
+            image_counter=1
             while IFS=$'\t' read -r image_url image_name; do
               [[ -z "$image_url" ]] && continue
-              dest="$chapter_dir/$image_name"
-              if [[ -e "$dest" ]]; then
-                dest="$chapter_dir/${image_name%.*}_$idx.${image_name##*.}"
-                ((idx++))
+              ext="${image_name##*.}"
+              [[ "$ext" == "$image_name" ]] && ext="jpg"
+              ext="${ext,,}"
+              printf -v img_prefix "%04d" "$image_counter"
+              dest="$chapter_dir/${img_prefix}.${ext}"
+              if [[ -e "$dest" && -s "$dest" ]]; then
+                echo "        已存在图片 -> $dest (跳过)"
+              else
+                echo "        保存图片 -> $dest"
+                curl -fsSL --retry 3 --retry-delay 2 -H "Referer: $chapter_url" "$image_url" -o "$dest"
               fi
-              echo "        保存图片 -> $dest"
-              curl -fsSL --retry 3 --retry-delay 2 -H "Referer: $chapter_url" "$image_url" -o "$dest"
               sleep_with_jitter "$DELAY"
+              ((image_counter++))
             done <"$image_list"
           fi
           rm -f "$chapter_html" "$image_list"
