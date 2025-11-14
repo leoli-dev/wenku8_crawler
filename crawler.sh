@@ -95,9 +95,11 @@ PY
       echo "下载失败：$url (已尝试 $attempt 次, 最后错误码 $last_error)" >&2
       return 1
     fi
-    local wait_seconds=$(python3 - <<PY
+    local wait_seconds
+    wait_seconds=$(python3 - "$DELAY" <<'PY'
 import sys
-base = max(float($DELAY), 10.0)
+delay = float(sys.argv[1])
+base = max(delay, 10.0)
 print(f"{base:.2f}")
 PY
 )
@@ -137,6 +139,39 @@ while IFS=$'\t' read -r kind col1 col2 col3 col4; do
       chapter_url="$col4"
       volume_dir="$novel_dir/$volume_safe"
       mkdir -p "$volume_dir"
+      if [[ "$chapter_title" == *插图* ]]; then
+        chapter_dir="$volume_dir/$chapter_safe"
+        mkdir -p "$chapter_dir"
+        if [[ -d "$chapter_dir" ]] && find "$chapter_dir" -maxdepth 1 -type f -not -name ".images.txt" -print -quit | grep -q .; then
+          printf '    [%03d] 跳过 %s - %s (插图已存在)\n' "$((chapter_count + 1))" "$volume_safe" "$chapter_title"
+          ((++chapter_count))
+          continue
+        fi
+        printf '    [%03d] 下载插图 %s - %s\n' "$((chapter_count + 1))" "$volume_safe" "$chapter_title"
+        printf -v chapter_html '%s/chapter_%04d.html' "$TMP_DIR" "$chapter_count"
+        fetch_page "$chapter_url" "$CATALOG_URL" "$chapter_html"
+        image_list="$chapter_dir/.images.txt"
+        python3 "$SCRIPT_DIR/scripts/extract_images.py" "$chapter_html" "$chapter_url" >"$image_list"
+        if [[ ! -s "$image_list" ]]; then
+          echo "        未在插图章节中找到图片链接" >&2
+        else
+          idx=1
+          while IFS=$'\t' read -r image_url image_name; do
+            [[ -z "$image_url" ]] && continue
+            dest="$chapter_dir/$image_name"
+            if [[ -e "$dest" ]]; then
+              dest="$chapter_dir/${image_name%.*}_$idx.${image_name##*.}"
+              ((idx++))
+            fi
+            echo "        保存图片 -> $dest"
+            curl -fsSL --retry 3 --retry-delay 2 -H "Referer: $chapter_url" "$image_url" -o "$dest"
+            sleep_with_jitter "$DELAY"
+          done <"$image_list"
+        fi
+        rm -f "$chapter_html" "$image_list"
+        ((++chapter_count))
+        continue
+      fi
       chapter_path="$volume_dir/$chapter_safe.txt"
       if [[ -e "$chapter_path" ]]; then
         if [[ -s "$chapter_path" ]]; then

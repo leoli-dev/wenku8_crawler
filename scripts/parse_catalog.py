@@ -77,7 +77,7 @@ class CatalogParser(HTMLParser):
             return
         if tag == "a" and self.current_link:
             chapter_title = "".join(self.current_link_text).strip()
-            if chapter_title and "插图" not in chapter_title:
+            if chapter_title:
                 if not self.current_volume:
                     self.current_volume = "未分卷"
                     self.volumes.setdefault(self.current_volume, [])
